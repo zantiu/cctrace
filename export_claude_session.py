@@ -25,6 +25,36 @@ import getpass
 # Version for manifest
 CCTRACE_VERSION = "2.0.0"
 
+
+def get_claude_home():
+    """Get the home directory that contains .claude data.
+
+    When invoked via wsl.exe from Windows, Path.home() may resolve to /root
+    even though claude data lives in a regular user's home.
+    """
+    home = Path.home()
+    try:
+        if (home / '.claude' / 'projects').exists():
+            return home
+    except PermissionError:
+        pass
+
+    # Fallback: scan /home/*/ for .claude/projects
+    home_dir = Path('/home')
+    try:
+        if home_dir.exists():
+            for user_dir in sorted(home_dir.iterdir()):
+                try:
+                    if user_dir.is_dir() and (user_dir / '.claude' / 'projects').exists():
+                        return user_dir
+                except PermissionError:
+                    continue
+    except PermissionError:
+        pass
+
+    return home
+
+
 def clean_text_for_xml(text):
     """Remove or replace characters that cause XML parsing issues."""
     if not text:
@@ -117,7 +147,7 @@ def find_project_sessions(project_path):
     if project_dir_name.startswith('-'):
         project_dir_name = project_dir_name[1:]
 
-    claude_project_dir = Path.home() / '.claude' / 'projects'
+    claude_project_dir = get_claude_home() / '.claude' / 'projects'
 
     if os.name == 'nt':  # Windows
         claude_project_dir = claude_project_dir / project_dir_name
@@ -401,10 +431,10 @@ def get_normalized_project_dir(project_path):
     """Get the normalized Claude project directory name for a given path."""
     project_path = str(project_path)
     if os.name == 'nt':  # Windows
-        project_dir_name = project_path.replace('\\', '-').replace(':', '-').replace('/', '-').replace('.', '-').replace('_', '-')
+        project_dir_name = project_path.replace('\\', '-').replace(':', '-').replace('/', '-').replace('.', '-').replace('_', '-').replace(' ', '-')
     else:  # Unix-like
         normalized_project_path = project_path.replace('\\', '/')
-        project_dir_name = normalized_project_path.replace('/', '-').replace('.', '-').replace('_', '-')
+        project_dir_name = normalized_project_path.replace('/', '-').replace('.', '-').replace('_', '-').replace(' ', '-')
 
     if project_dir_name.startswith('-'):
         project_dir_name = project_dir_name[1:]
@@ -433,7 +463,7 @@ def collect_agent_sessions(project_path, session_id, messages):
 
     # Get the Claude project directory
     normalized_dir = get_normalized_project_dir(project_path)
-    claude_project_dir = Path.home() / '.claude' / 'projects' / normalized_dir
+    claude_project_dir = get_claude_home() / '.claude' / 'projects' / normalized_dir
 
     if not claude_project_dir.exists():
         return agents
@@ -462,7 +492,7 @@ def collect_file_history(session_id):
 
     Returns list of file paths or empty list if none.
     """
-    file_history_dir = Path.home() / '.claude' / 'file-history' / session_id
+    file_history_dir = get_claude_home() / '.claude' / 'file-history' / session_id
 
     if not file_history_dir.exists():
         return []
@@ -483,7 +513,7 @@ def collect_plan_file(slug):
     if not slug:
         return None
 
-    plan_file = Path.home() / '.claude' / 'plans' / f'{slug}.md'
+    plan_file = get_claude_home() / '.claude' / 'plans' / f'{slug}.md'
 
     if plan_file.exists():
         return plan_file
@@ -496,7 +526,7 @@ def collect_todos(session_id):
 
     Returns list of file paths or empty list if none.
     """
-    todos_dir = Path.home() / '.claude' / 'todos'
+    todos_dir = get_claude_home() / '.claude' / 'todos'
 
     if not todos_dir.exists():
         return []
@@ -513,7 +543,7 @@ def collect_session_env(session_id):
 
     Returns directory path if exists and non-empty, None otherwise.
     """
-    session_env_dir = Path.home() / '.claude' / 'session-env' / session_id
+    session_env_dir = get_claude_home() / '.claude' / 'session-env' / session_id
 
     if session_env_dir.exists():
         # Check if directory has any files
@@ -795,7 +825,7 @@ def export_session_enhanced(session_info, project_path, export_name, output_dir=
             export_dir = Path(output_dir) / export_name
         else:
             timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            export_dir = Path.home() / 'claude_sessions' / 'exports' / f"{timestamp}_{session_id[:8]}"
+            export_dir = get_claude_home() / 'claude_sessions' / 'exports' / f"{timestamp}_{session_id[:8]}"
 
     export_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1074,7 +1104,7 @@ def export_session(session_info, output_dir=None, output_format='all', copy_to_c
         copy_to_cwd: Whether to copy export to current directory (default: check env var)
     """
     if output_dir is None:
-        output_dir = Path.home() / 'claude_sessions' / 'exports'
+        output_dir = get_claude_home() / 'claude_sessions' / 'exports'
     
     # Parse the session file
     messages, metadata = parse_jsonl_file(session_info['path'])

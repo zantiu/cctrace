@@ -27,15 +27,16 @@ def get_normalized_project_dir(project_path):
     - : -> -
     - . -> -
     - _ -> -
+    - ' ' -> -
     - Unix paths: prefix with -
     - Windows paths: no prefix
     """
     project_path = str(project_path)
     if os.name == 'nt':  # Windows
-        project_dir_name = project_path.replace('\\', '-').replace(':', '-').replace('/', '-').replace('.', '-').replace('_', '-')
+        project_dir_name = project_path.replace('\\', '-').replace(':', '-').replace('/', '-').replace('.', '-').replace('_', '-').replace(' ', '-')
     else:  # Unix-like
         normalized_project_path = project_path.replace('\\', '/')
-        project_dir_name = normalized_project_path.replace('/', '-').replace('.', '-').replace('_', '-')
+        project_dir_name = normalized_project_path.replace('/', '-').replace('.', '-').replace('_', '-').replace(' ', '-')
 
     if project_dir_name.startswith('-'):
         project_dir_name = project_dir_name[1:]
